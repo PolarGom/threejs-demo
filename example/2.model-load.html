@@ -2,6 +2,7 @@
 <html>
 	<head>
 		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 		<title>2. 3D Model Load Demo</title>
 		<style>
 			body { margin: 0; }
@@ -49,6 +50,7 @@
 		</script>
 		<script type="module">
 			import * as THREE from 'three'
+			import Stats from '../jsm/libs/stats.module.js'
 			import WebGL from '../jsm/capabilities/WebGL.js'
 			import { OrbitControls } from '../jsm/controls/OrbitControls.js'
 			import { GLTFLoader } from '../jsm/loaders/GLTFLoader.js'
@@ -61,6 +63,8 @@
 			let animatinos = []
 			let actions = {}
 			let currentActionName = null
+
+			const stats = Stats()
 			const clock = new THREE.Clock()
 			const scene = new THREE.Scene()
 			const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
@@ -68,6 +72,7 @@
 			renderer.setSize(window.innerWidth, window.innerHeight)
 
 			document.body.appendChild(renderer.domElement)
+			document.body.appendChild(stats.dom)
 
 			const controls = new OrbitControls(camera, renderer.domElement)
 
@@ -184,6 +189,8 @@
 					}
 
 					renderer.render(scene, camera)
+
+					stats.update()
 				} catch(e) {
 					console.log(e)
 				}
