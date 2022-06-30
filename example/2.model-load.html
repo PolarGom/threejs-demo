@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>2. 3D Model Load Demo</title>
+		<style>
+			body { margin: 0; }
+			#info {
+				position: absolute;
+				top: 10px;
+				width: 100%;
+				text-align: center;
+				z-index: 100;
+				display:block;
+				color: white;
+			}
+			#layout-animations {
+				position: absolute;
+				top: 40px;
+				width: 100%;
+				text-align: center;
+				z-index: 100;
+				color: white;
+				display: flex;
+				justify-content: center;
+				align-items: center;
+			}
+			#layout-animation-buttons > button {
+				width: 100px;
+				height: 40px;
+				margin: 6px;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="info">2. 3D Model Load Demo</div>
+		<div id="layout-animations">
+			<div>Animation Buttons: </div>
+			<div id="layout-animation-buttons"></div>
+		</div>
+
+		<script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "../jsm/three.module.js"
+				}
+			}
+		</script>
+		<script type="module">
+			import * as THREE from 'three'
+			import WebGL from '../jsm/capabilities/WebGL.js'
+			import { OrbitControls } from '../jsm/controls/OrbitControls.js'
+			import { GLTFLoader } from '../jsm/loaders/GLTFLoader.js'
+
+			if (!WebGL.isWebGLAvailable()) {
+				const warning = WebGL.getWebGLErrorMessage()
+				document.body.appendChild(warning)
+			}
+
+			let animatinos = []
+			let actions = {}
+			let currentActionName = null
+			const clock = new THREE.Clock()
+			const scene = new THREE.Scene()
+			const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
+			const renderer = new THREE.WebGLRenderer()
+			renderer.setSize(window.innerWidth, window.innerHeight)
+
+			document.body.appendChild(renderer.domElement)
+
+			const controls = new OrbitControls(camera, renderer.domElement)
+
+			// 빛을 추가하지 않는 다면 로드된 Model 은 보이지 않는다.
+			scene.background = new THREE.Color(0xa0a0a0)
+			scene.add(createAmbientLight())
+			scene.add(createDirectionalLight())
+
+			camera.position.set(0, 50, 150)
+
+			let mixer = null
+
+			loadModel()
+			animate()
+
+			function loadModel() {
+				const loader = new GLTFLoader()
+				loader.load('../resources/model/Fox.glb', function (gltf) {
+					// 불러온 모델인 gltf 에 console.log 로 출력하면 정보들이 존재
+					// 애니메이션은 gltf.animations 안에 정보가 존재
+					let object = gltf.scene
+					object.position.set(0, 0, 0)
+
+					scene.add(object)
+
+					// 애니메이션은 Mixer 를 통해서 재생이 가능
+					animatinos = gltf.animations
+
+					mixer = new THREE.AnimationMixer(object)
+					drawAnimationButtons()
+				}, undefined, function (error) {
+					console.error(error)
+				})
+			}
+
+			function drawAnimationButtons() {
+				animatinos.forEach(o => {
+					// Action 셋팅한다.
+					const action = mixer.clipAction(o)
+					// true 활성화(자동으로 시작되지 않음), false 비활성화(액션 초기화되지 않음) > 기본값은 true
+					action.enabled = true
+					// 애니메이션 시간 값 스케일을 1로 범위 수정
+					action.setEffectiveTimeScale(1)
+					// 애니메이션 가중치 0(영향 없음), 1(최대 영향) > 기본값은 1
+					action.setEffectiveWeight(Object.keys(actions).length === 0? 1 : 0)
+					action.play()
+					actions[o.name] = action
+
+					if (Object.keys(actions).length === 1) {
+						currentActionName = o.name
+					}
+
+					const parentDom = document.getElementById('layout-animation-buttons')
+
+					let buttonDom = document.createElement('button')
+					buttonDom.innerHTML = !!o.name? o.name : 'Animation'
+					buttonDom.addEventListener('click', () => {
+						crossAction(o.name, 1)
+					})
+
+					parentDom.appendChild(buttonDom)
+				})
+			}
+
+			function crossAction(startActionName, duration) {
+				if (startActionName === currentActionName) return
+
+				let startAction = actions[startActionName]
+				let endAction = actions[currentActionName]
+
+				mixer.addEventListener('loop', onLoopFinised)
+
+				function onLoopFinised(event) {
+					if (event.action === endAction) {
+						mixer.removeEventListener('loop', onLoopFinised)
+
+						startAction.enabled = true // true가 되면 현재 time 부터 애니메이션이 시작
+						startAction.setEffectiveWeight(1) // 1로 가중치를 줘서 애니메이션 시작
+						startAction.setEffectiveTimeScale(1)
+						startAction.time = 0 // 애니메이션 시간값을 0으로 변경
+
+						// 두번째 인자인 duration 은 현재 애니메이션이 끝나고 다음 애니메이션 바뀌는 시간이다.
+						// 만약 endAction 이 1초 동안 실행되는 애니메이션이고, ducation 값이 1 이면 최종적으로
+						// 2초뒤 다음 애니메이션이(startAction) 실행
+						endAction.crossFadeTo(startAction, duration, true)
+
+						currentActionName = startActionName
+					}
+				}
+			}
+
+			function createAmbientLight() {
+				const ambientLight = new THREE.AmbientLight(0xcccccc)
+
+				return ambientLight
+			}
+
+			function createDirectionalLight() {
+				let directionalLight = new THREE.DirectionalLight(0xffffff)
+				directionalLight.castShadow = true
+				directionalLight.position.set(0, 1, 1).normalize()
+
+				return directionalLight
+			}
+
+			function animate() {
+				try {
+					requestAnimationFrame(animate)
+
+					// getDelta: 이전 시간에서 현재 시간을 뺀 값
+					// mixer 는 각 프레임마다 업데이트
+					if (mixer !== null) {
+						mixer.update(clock.getDelta())
+					}
+
+					renderer.render(scene, camera)
+				} catch(e) {
+					console.log(e)
+				}
+			}
+		</script>
+	</body>
+</html>
