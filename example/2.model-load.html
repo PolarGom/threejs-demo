@@ -57,6 +57,7 @@
 			import { GUI } from '../jsm/libs/lil-gui.module.min.js'
 
 			import ColorGUIHelper from './js/ColorGUIHelper.js'
+			import MinMaxGUIHelper from './js/MinMaxGUIHelper.js'
 
 			if (!WebGL.isWebGLAvailable()) {
 				const warning = WebGL.getWebGLErrorMessage()
@@ -71,7 +72,10 @@
 			const clock = new THREE.Clock()
 			const scene = new THREE.Scene()
 			const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000)
-			const renderer = new THREE.WebGLRenderer()
+			const renderer = new THREE.WebGLRenderer({
+				logarithmicDepthBuffer: true
+			})
+			renderer.shadowMap.enabled = true
 			renderer.setSize(window.innerWidth, window.innerHeight)
 
 			document.body.appendChild(renderer.domElement)
@@ -92,9 +96,14 @@
 			scene.add(axesHelper)
 
 			// GUI 컨트롤러 추가
+			const minMaxGUIHelper = new MinMaxGUIHelper(camera, 'near', 'far', 0.1)
+
 			const gui = new GUI()
 			gui.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color')
 			gui.add(light, 'intensity', 0, 10, 0.01)
+			gui.add(camera, 'fov', 1, 180).onChange(updateCamera)
+			gui.add(minMaxGUIHelper, 'min', 0.1, 50, 0.1).name('near').onChange(updateCamera)
+			gui.add(minMaxGUIHelper, 'max', 0.1, 1000, 0.1).name('far').onChange(updateCamera)
 
 			// 조명 위치 그리기(방향, 세기 등등..)
 			const helper = new THREE.DirectionalLightHelper(light)
@@ -252,6 +261,10 @@
 			function updateLight() {
 				light.target.updateMatrixWorld()
 				helper.update()
+			}
+
+			function updateCamera() {
+				camera.updateProjectionMatrix();
 			}
 		</script>
 	</body>
