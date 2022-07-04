@@ -54,6 +54,9 @@
 			import WebGL from '../jsm/capabilities/WebGL.js'
 			import { OrbitControls } from '../jsm/controls/OrbitControls.js'
 			import { GLTFLoader } from '../jsm/loaders/GLTFLoader.js'
+			import { GUI } from '../jsm/libs/lil-gui.module.min.js'
+
+			import ColorGUIHelper from './js/ColorGUIHelper.js'
 
 			if (!WebGL.isWebGLAvailable()) {
 				const warning = WebGL.getWebGLErrorMessage()
@@ -78,10 +81,29 @@
 
 			// 빛을 추가하지 않는 다면 로드된 Model 은 보이지 않는다.
 			scene.background = new THREE.Color(0xa0a0a0)
-			scene.add(createAmbientLight())
-			scene.add(createDirectionalLight())
+			const light = createDirectionalLight()
+			// scene.add(createAmbientLight())
+			scene.add(light)
 
 			camera.position.set(0, 50, 150)
+
+			// World XYZ 표시
+			const axesHelper = new THREE.AxesHelper(5)
+			scene.add(axesHelper)
+
+			// GUI 컨트롤러 추가
+			const gui = new GUI()
+			gui.addColor(new ColorGUIHelper(light, 'color'), 'value').name('color')
+			gui.add(light, 'intensity', 0, 10, 0.01)
+
+			// 조명 위치 그리기(방향, 세기 등등..)
+			const helper = new THREE.DirectionalLightHelper(light)
+			scene.add(helper)
+
+			updateLight()
+
+			makeXYZGUI(gui, light.position, 'position', updateLight)
+    	makeXYZGUI(gui, light.target.position, 'target', updateLight)
 
 			let mixer = null
 
@@ -171,15 +193,25 @@
 			}
 
 			function createDirectionalLight() {
-				let directionalLight = new THREE.DirectionalLight(0xffffff)
-				directionalLight.castShadow = true
-				directionalLight.position.set(0, 1, 1).normalize()
+				const color = 0xFFFFFF
+				const intensity = 1
+				let light = new THREE.DirectionalLight(color, intensity)
+				light.position.set(0, 10, 0)
+				light.target.position.set(-5, 0, 0)
+				light.castShadow = true
 
-				return directionalLight
+				return light
 			}
 
 			function animate() {
 				try {
+
+					if (resizeRendererToDisplaySize(renderer)) {
+						const canvas = renderer.domElement;
+						camera.aspect = canvas.clientWidth / canvas.clientHeight;
+						camera.updateProjectionMatrix();
+					}
+
 					requestAnimationFrame(animate)
 
 					// getDelta: 이전 시간에서 현재 시간을 뺀 값
@@ -194,6 +226,32 @@
 				} catch(e) {
 					console.log(e)
 				}
+			}
+
+			function resizeRendererToDisplaySize(renderer) {
+				const canvas = renderer.domElement
+				const width = canvas.clientWidth
+				const height = canvas.clientHeight
+				const needResize = canvas.width !== width || canvas.height !== height
+
+				if (needResize) {
+					renderer.setSize(width, height, false)
+				}
+
+				return needResize
+			}
+
+			function makeXYZGUI(gui, vector3, name, onChangeFn) {
+				const folder = gui.addFolder(name)
+				folder.add(vector3, 'x', -10, 10).onChange(onChangeFn)
+				folder.add(vector3, 'y', 0, 10).onChange(onChangeFn)
+				folder.add(vector3, 'z', -10, 10).onChange(onChangeFn)
+				folder.open()
+			}
+
+			function updateLight() {
+				light.target.updateMatrixWorld()
+				helper.update()
 			}
 		</script>
 	</body>
