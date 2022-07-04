@@ -91,6 +91,9 @@
 
 			camera.position.set(0, 50, 150)
 
+			const cameraHelper = new THREE.CameraHelper(light.shadow.camera)
+    	scene.add(cameraHelper)
+
 			// World XYZ 표시
 			const axesHelper = new THREE.AxesHelper(5)
 			scene.add(axesHelper)
